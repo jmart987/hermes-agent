@@ -1,23 +1,10 @@
 import pathlib,re,subprocess,json,urllib.request,datetime,collections
 root=pathlib.Path(__file__).resolve().parent.parent; out=root/'audit-2026-09-25'
-files=subprocess.check_output(['git','ls-files'],cwd=root,text=True).splitlines()
-scopes=('agent/','gateway/','hermes_cli/','tools/','plugins/','apps/desktop/')
-url=re.compile(r'''(?:https?|wss?|ftp|ssh)://[^\s<>"'`\\)\]}]+''')
-host=re.compile(r'''(?<![\w/.-])(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+(?:com|org|net|dev|io|ai|app|co|cloud|sh|cn|us|gov|edu|local|internal|run|tech|xyz|me|fr|de|uk|jp|so|gg)(?![\w.-])|(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])|\blocalhost\b''')
-rows=[]; scanned=0; binary=[]
-for f in files:
- if not f.startswith(scopes):continue
- try:t=(root/f).read_text()
- except (UnicodeError,OSError):binary.append(f);continue
- scanned+=1
- for n,line in enumerate(t.splitlines(),1):
-  spans=[]
-  for m in url.finditer(line):
-   rows.append((f,n,'url',m.group()));spans.append(m.span())
-  for m in host.finditer(line):
-   if not any(a<=m.start()<b for a,b in spans):rows.append((f,n,'host-candidate',m.group()))
-(out/'egress-literals.tsv').write_text('file\tline\tkind\tliteral\n'+''.join('\t'.join(map(str,r))+'\n' for r in rows))
-(out/'egress-scan.json').write_text(json.dumps({'commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'text_files_scanned':scanned,'binary_or_unreadable_files':binary,'occurrences':len(rows),'method':'lexical URLs plus standalone domain/IP candidates; includes tests/docs/examples; dynamic URLs require call-site review'},indent=2))
+SOURCE_COMMIT='28545254ddd02eaf01107a9ddf83b3ee9ae127f8'
+import runpy
+scan_module=runpy.run_path(str(out/'scan-egress.py'))
+scanned,literal_count=scan_module['scan']()
+files=subprocess.check_output(['git','ls-tree','-r','--name-only',SOURCE_COMMIT],cwd=root,text=True).splitlines()
 queries={}
 def add(eco,name,version,source):
  if name and version:queries.setdefault((eco,name,version),[]).append(source)
@@ -46,4 +33,4 @@ for i in range(0,len(components),100):
   for c,res in zip(batch,response['results']):results.append({'component':c,'result':res})
  except Exception as e:errors.append({'start':i,'count':len(batch),'error':str(e)})
  (out/'osv-results.json').write_text(json.dumps({'observed_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'queried':len(results),'total':len(components),'errors':errors,'results':results},indent=2))
-print(json.dumps({'scanned_files':scanned,'literals':len(rows),'components':dict(collections.Counter(c['ecosystem'] for c in components)),'queried':len(results),'errors':errors,'affected_components':sum(bool(r['result'].get('vulns')) for r in results)}))
+print(json.dumps({'scanned_files':scanned,'literals':literal_count,'components':dict(collections.Counter(c['ecosystem'] for c in components)),'queried':len(results),'errors':errors,'affected_components':sum(bool(r['result'].get('vulns')) for r in results)}))

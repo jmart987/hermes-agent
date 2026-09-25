@@ -1,0 +1,11 @@
+{
+  "audited_source": "28545254ddd02eaf01107a9ddf83b3ee9ae127f8",
+  "source_unchanged": true,
+  "citation_locations_validated": 166,
+  "summary_lines": 11,
+  "osv_registry_components": 2800,
+  "affected_package_versions": 21,
+  "failed_batches": 0,
+  "unread_result_pages": 0,
+  "third_party_code_executed": false
+}

@@ -50,6 +50,8 @@
     "tools/neutts_samples/jo.wav",
     "tools/wakewords/hey_hermes.tflite"
   ],
-  "occurrences": 6994,
-  "method": "lexical URLs plus standalone domain/IP candidates; includes tests/docs/examples; dynamic URLs require call-site review"
+  "occurrences": 27712,
+  "method": "All literal URI schemes with ://; standalone IANA/reserved-domain, IPv4-shaped, localhost and ::1 candidates; normalize escaped slash/dot; includes docs/tests; cannot prove dynamic egress",
+  "tld_source": "https://data.iana.org/TLD/tlds-alpha-by-domain.txt",
+  "observed_utc": "2026-09-25T18:11:38.803909+00:00"
 }
