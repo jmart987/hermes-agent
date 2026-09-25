@@ -1,3 +1,3 @@
 # Audit progress
 
-Pinned source verified. Static URL inventory and lockfile OSV queries complete; source review underway across all eight areas. No Hermes code executed, no install or build performed. Initial query included the editable root package as version 0.0.0; exclude its matches from dependency findings and correct collector source selection. No addenda at phase boundary. No delegation.
+All eight areas complete. Overall FAIL for unrestricted untrusted-input use. Exact pin confirmed, source unchanged, cited locations validated, public lockfile OSV queries complete. No Hermes execution/install/build; no installation changes; no delegation. ADDENDA.md remained empty at all phase/commit checks. No usage-guard checkpoint was present. Final audit/report and supporting evidence are ready for delivery.

@@ -17,6 +17,9 @@ assert all(not r['result'].get('next_page_token') for r in raw['results'])
 valid=[r for r in raw['results'] if r['component']['name']!='hermes-agent'];assert len(valid)==2800
 assert sum(bool(r['result'].get('vulns')) for r in valid)==21
 for f in p.glob('*.py'):compile(f.read_text(),str(f),'exec')
+scan=json.loads((p/'egress-scan.json').read_text())
+assert len((p/'egress-literals.tsv').read_text().splitlines())-1==scan['occurrences']
+assert f"{scan['occurrences']:,}" in text
 summary=text.split('## Scope')[0];lines=[l for l in summary.splitlines() if l and not l.startswith('#')];assert len(lines)<=12,len(lines)
 result={'audited_source':base,'source_unchanged':True,'citation_locations_validated':len(checked),'summary_lines':len(lines),'osv_registry_components':len(valid),'affected_package_versions':21,'failed_batches':0,'unread_result_pages':0,'third_party_code_executed':False}
 (p/'verification.json').write_text(json.dumps(result,indent=2)+'\n');print(result)
